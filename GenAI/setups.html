@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html style="--markdown-font-family: -apple-system, BlinkMacSystemFont, &#39;Segoe WPC&#39;, &#39;Segoe UI&#39;, system-ui, &#39;Ubuntu&#39;, &#39;Droid Sans&#39;, sans-serif; --markdown-font-size: 14px; --markdown-line-height: 1.6;">
+<head>
+	<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+	<link rel="stylesheet" type="text/css" href="file:///d:/Program%20Files/Microsoft%20VS%20Code/125df4672b/resources/app/extensions/github/markdown.css">
+	<link rel="stylesheet" type="text/css" href="file:///d:/Program%20Files/Microsoft%20VS%20Code/125df4672b/resources/app/extensions/markdown-language-features/media/markdown.css">
+	<link rel="stylesheet" type="text/css" href="file:///d:/Program%20Files/Microsoft%20VS%20Code/125df4672b/resources/app/extensions/markdown-language-features/media/highlight.css">
+	<link rel="stylesheet" type="text/css" href="file:///d:/Program%20Files/Microsoft%20VS%20Code/125df4672b/resources/app/extensions/markdown-math/notebook-out/katex.min.css">
+	<link rel="stylesheet" type="text/css" href="file:///d:/Program%20Files/Microsoft%20VS%20Code/125df4672b/resources/app/extensions/markdown-math/preview-styles/index.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-checkbox-0.4.0/checkboxes.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/base.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-theme-base.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-light.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-light-colorblind.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-light-tritanopia.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-light-high-contrast.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-dark.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-dark-dimmed.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-dark-colorblind.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-dark-tritanopia.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/github-markdown-dark-high-contrast.css">
+	<link rel="stylesheet" type="text/css" href="file:///c:/Users/cc8029/.vscode/extensions/bierner.markdown-preview-github-styles-2.2.0/dist/highlight-js.css">
+	<base href="file:///d:/Dropbox/Teaching/GenAI_for_Business/notes/n8n/setups.md">
+</head>
+<body class="vscode-body vscode-light scrollBeyondLastLine wordWrap">
+	<div class="markdown-body" dir="auto"><div
+            class="github-markdown-body"
+            data-color-mode="auto"
+            data-light-theme="light"
+            data-dark-theme="dark"
+        >
+            <div class="github-markdown-content"><span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 data-line="0" class="code-line" dir="auto" id="software-setup">Software Setup</h1>
+<h2 data-line="2" class="code-line" dir="auto" id="1-openai-api-setup">1. OpenAI API Setup</h2>
+<p data-line="4" class="code-line" dir="auto">In our class, all examples will use OpenAI's <strong>GPT-5.5</strong>, one of the best models currently available. To use this model via the API, you need to:</p>
+<ol data-line="6" class="code-line" dir="auto">
+<li data-line="6" class="code-line" dir="auto">Create an OpenAI platform account</li>
+<li data-line="7" class="code-line" dir="auto">Add credit to your account</li>
+<li data-line="8" class="code-line" dir="auto">Create an API key</li>
+</ol>
+<h3 data-line="11" class="code-line" dir="auto" id="step-a-create-account--add-credit">Step A: Create Account &amp; Add Credit</h3>
+<ol data-line="13" class="code-line" dir="auto">
+<li data-line="13" class="code-line" dir="auto">Log into <a href="https://platform.openai.com" data-href="https://platform.openai.com">https://platform.openai.com</a> or make an account to get started. Even if you've used ChatGPT before, this interface might look slightly different.</li>
+<li data-line="14" class="code-line" dir="auto">In the top right corner, click on <code>Settings</code> (a gear icon) and then navigate to <code>Billing</code>.
+<ol data-line="15" class="code-line" dir="auto">
+<li data-line="15" class="code-line" dir="auto">If the gear icon doesn't appear, you'll see a button that says <code>Start building</code>. Click on this and your organization name should be something like <code>Personal</code>. Once you create an organization, skip the next step to invite your team, make your first API call, and add API credits.</li>
+<li data-line="16" class="code-line" dir="auto">Once you do these steps, the gear icon should appear in the top right. Click on this and then navigate to <code>Billing</code>.</li>
+</ol>
+</li>
+<li data-line="17" class="code-line" dir="auto">Add a payment method and then <strong>add $10 to your credit balance</strong>. This should be enough for the entire course. You can add more later if needed.</li>
+</ol>
+<hr data-line="19" class="code-line" dir="auto">
+<h3 data-line="21" class="code-line" dir="auto" id="step-b-create-your-api-key">Step B: Create Your API Key</h3>
+<ol data-line="23" class="code-line" dir="auto">
+<li data-line="23" class="code-line" dir="auto">In the top left, press the search button and search for &quot;API keys&quot; or navigate to <a href="https:platform.openai.com/settings/organization/api-keys" data-href="https:platform.openai.com/settings/organization/api-keys">https:platform.openai.com/settings/organization/api-keys</a></li>
+<li data-line="24" class="code-line" dir="auto">Press <code>+ Create new secret key</code> and give it a name like &quot;n8n connection&quot;.</li>
+<li data-line="25" class="code-line" dir="auto"><strong>Save your key somewhere secure and copy it</strong>—you will not be able to access this key again beyond this screen. You will need to input it into n8n later. If you lose it, you can always make another API key.</li>
+</ol>
+<hr data-line="27" class="code-line" dir="auto">
+<h2 data-line="29" class="code-line" dir="auto" id="2-getting-connected-to-telegram">2. Getting Connected to Telegram</h2>
+<p data-line="31" class="code-line" dir="auto">We can use Telegram to message n8n since it has a great interface for connecting chatbots.
+Download the Telegram app on your phone to get started.</p>
+<ol data-line="34" class="code-line" dir="auto">
+<li data-line="34" class="code-line" dir="auto">In Telegram, open a new chat with BotFather and type <code>/newbot</code>. It will then prompt you to name your bot. Follow the prompts until your bot is created.</li>
+<li data-line="35" class="code-line" dir="auto">When successfully created, a message will appear that says <code>Use this token to access the HTTP API</code>. Copy the string of letters and numbers.</li>
+<li data-line="36" class="code-line" dir="auto">In n8n, click <code>Create Credential</code> and choose Telegram. Paste the token from Telegram into the Access Token field and then click <code>Save</code>.</li>
+<li data-line="37" class="code-line" dir="auto">In Telegram, the message begins with <code>Done! Congratulations on your new bot. You will find it at</code>, followed by a URL. Click on this link and hit <code>Start</code> to begin a chat with your bot.</li>
+</ol>
+<blockquote data-line="39" class="code-line" dir="auto">
+<p data-line="39" class="code-line" dir="auto"><strong>Telegram Privacy</strong></p>
+<p data-line="41" class="code-line" dir="auto">When you make a Telegram bot, this is technically accessible by anyone who knows the bot's username. This means that other people could potentially message your bot. When we are linking an n8n workflow to Telegram, we should ensure that we only move forward if the message is from a whitelisted user (or, more restrictively, just yourself). <a href="https://www.youtube.com/watch?v=QZ93nQGwnPg" data-href="https://www.youtube.com/watch?v=QZ93nQGwnPg">Here is a great video</a> showing both how to set up Telegram with n8n and also how to make sure that it only accepts messages from valid users. We will use a similar but slightly easier step in class.</p>
+</blockquote>
+</div>
+        </div><div class="code-line" data-line="43"></div></div>
+	
+</body>
+</html>
