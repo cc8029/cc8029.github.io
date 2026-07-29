@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Building a Google Calendar Agent</title>
+	<link rel="stylesheet" href="./assets/github-markdown.css">
+</head>
+<body class="vscode-body vscode-light scrollBeyondLastLine wordWrap">
+	<div class="markdown-body" dir="auto"><div
+            class="github-markdown-body"
+            data-color-mode="auto"
+            data-light-theme="light"
+            data-dark-theme="dark"
+        >
+            <div class="github-markdown-content"><span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 data-line="0" class="code-line" dir="auto" id="building-a-google-calendar-agent">Building a Google Calendar Agent</h1>
+<p data-line="2" class="code-line" dir="auto">In this class, we will use <a href="https://genai-business-chen.app.n8n.cloud/" data-href="https://genai-business-chen.app.n8n.cloud/">n8n</a> to build a <strong>Google Calendar assistant</strong> that can add, update, and delete events by sending a chat message.</p>
+<hr data-line="4" class="code-line" dir="auto">
+<h3 data-line="6" class="code-line" dir="auto" id="learning-objectives">Learning Objectives</h3>
+<ul data-line="8" class="code-line" dir="auto">
+<li data-line="8" class="code-line" dir="auto">Learn the basics of <strong>nodes</strong> and <strong>connections</strong> in n8n.</li>
+<li data-line="9" class="code-line" dir="auto">See the power of <strong>system prompting</strong> (controlling the “voice” of an AI).</li>
+<li data-line="10" class="code-line" dir="auto">Understand how to use an <strong>AI Agent</strong> with tools.</li>
+<li data-line="11" class="code-line" dir="auto">See an example of how we can create value using AI.</li>
+</ul>
+<hr data-line="13" class="code-line" dir="auto">
+<h3 data-line="15" class="code-line" dir="auto" id="n8n-terminology">n8n Terminology</h3>
+<p data-line="17" class="code-line" dir="auto">In n8n, we will be making workflows.</p>
+<ul data-line="19" class="code-line" dir="auto">
+<li data-line="19" class="code-line" dir="auto">A <strong>workflow</strong> is a series of connected tasks that can automate a process.
+<ul data-line="20" class="code-line" dir="auto">
+<li data-line="20" class="code-line" dir="auto">Workflows consist of <strong>triggers, nodes, and connections</strong>.</li>
+</ul>
+</li>
+<li data-line="21" class="code-line" dir="auto"><strong>Triggers</strong> (or trigger nodes) tell us when the workflow should start. This can occur when we hit execute workflow, send a message, receive an email, or more.</li>
+<li data-line="22" class="code-line" dir="auto"><strong>Nodes</strong> each perform a specific task, such as manipulating data, sending an email, or reading a calendar.</li>
+<li data-line="23" class="code-line" dir="auto"><strong>Connections</strong> tell n8n in what order we want these operations to occur and how our information should flow through the workflow. Think of it like a process flow chart, with our unit of flow being our information.</li>
+<li data-line="24" class="code-line" dir="auto"><strong>Credentials</strong> let us connect n8n to other services, such as OpenAI and Google products.</li>
+</ul>
+<hr data-line="26" class="code-line" dir="auto">
+<h2 data-line="28" class="code-line" dir="auto" id="part-1-building-a-google-calendar-agent">Part 1: Building a Google Calendar Agent</h2>
+<p data-line="30" class="code-line" dir="auto">Now we build a <strong>Calendar assistant</strong>. This shows how to go beyond a single LLM response, giving the AI the ability to actually take actions.</p>
+<p data-line="32" class="code-line" dir="auto">We are using Google Calendar because it is easy to implement, but what we are doing here can be extended to other calendars. Start a new workspace and let's get started!</p>
+<hr data-line="34" class="code-line" dir="auto">
+<h3 data-line="35" class="code-line" dir="auto" id="step-1-trigger-listening-for-chat-message">Step 1. Trigger: Listening for Chat Message</h3>
+<ul data-line="37" class="code-line" dir="auto">
+<li data-line="37" class="code-line" dir="auto">Every workflow in n8n starts with a type of trigger that initiates the workflow. We will start our workflow when certain types of Slack messages are sent.</li>
+<li data-line="38" class="code-line" dir="auto"><strong>Add node:</strong> <code>On chat message</code></li>
+<li data-line="39" class="code-line" dir="auto"><strong>What it does:</strong> Listens for chat messages within n8n. You should see a chat box at the bottom of your screen. If you do not, there should be a little arrow at the bottom right to expand a bottom menu.</li>
+<li data-line="40" class="code-line" dir="auto"><strong>Why this matters:</strong> Without a trigger, nothing starts. This lets us send messages to what will be our chatbot, which begins the workflow. This example gives us a simple interface for testing before connecting to external apps.</li>
+</ul>
+<p data-line="42" class="code-line" dir="auto">Try sending a chat message and see how it executes. Clicking into the node, you will see a sessionId, the action &quot;sendMessage,&quot; and your message (called chatInput).</p>
+<hr data-line="44" class="code-line" dir="auto">
+<h3 data-line="46" class="code-line" dir="auto" id="step-2-core-brain-ai-agent">Step 2. Core Brain: AI Agent</h3>
+<ul data-line="48" class="code-line" dir="auto">
+<li data-line="48" class="code-line" dir="auto"><strong>Add node:</strong> <code>AI Agent</code>
+<ul data-line="49" class="code-line" dir="auto">
+<li data-line="49" class="code-line" dir="auto"><strong>Source for Prompt (User Message):</strong> Connected Chat Trigger Node</li>
+</ul>
+</li>
+<li data-line="50" class="code-line" dir="auto"><strong>What it does:</strong> The agent can <strong>plan</strong> and <strong>choose tools.</strong> It receives as an input the message that we sent in the chat.</li>
+<li data-line="51" class="code-line" dir="auto">We will add a system message to clarify its instructions in the exercises, which allows us to customize it farther.</li>
+</ul>
+<hr data-line="53" class="code-line" dir="auto">
+<h3 data-line="55" class="code-line" dir="auto" id="step-3-connection-to-openai">Step 3. Connection to OpenAI</h3>
+<ul data-line="57" class="code-line" dir="auto">
+<li data-line="57" class="code-line" dir="auto"><strong>Add node:</strong> under the AI Agent, click the <code>+</code> for the chat model and choose <code>OpenAI Chat Model</code>. For the model, select <code>gpt-5.5</code>.</li>
+<li data-line="58" class="code-line" dir="auto">If you want to make it run slightly faster, click <code>Add Option → Reasoning Effort</code> and choose low. This makes the model spend less time thinking through its response. If you use a different model, Reasoning Effort might not appear as an option.</li>
+</ul>
+<hr data-line="60" class="code-line" dir="auto">
+<h3 data-line="62" class="code-line" dir="auto" id="step-4-give-the-agent-a-memory">Step 4. Give the Agent a Memory</h3>
+<p data-line="64" class="code-line" dir="auto">Currently, if we were to send a message to the chat, it would be able to respond, but unlike regular ChatGPT, this model has no memory of the previous messages it has received. You can actually test this yourself: send a chat message asking what the previous message said.</p>
+<p data-line="66" class="code-line" dir="auto">We will add a way for the agent to view past messages. With memory, it can follow up on previous things that you said (&quot;delete that soccer event I just made&quot;).</p>
+<ul data-line="68" class="code-line" dir="auto">
+<li data-line="68" class="code-line" dir="auto"><strong>Add node:</strong> under the AI Agent, click the <code>+</code> for the memory and choose <code>Simple Memory</code>
+<ul data-line="69" class="code-line" dir="auto">
+<li data-line="69" class="code-line" dir="auto"><strong>Session ID:</strong> Connected Chat Trigger Node</li>
+<li data-line="70" class="code-line" dir="auto"><strong>Context Window Length:</strong> The number of messages that the AI agent should &quot;remember.&quot; I usually choose 20 messages, since this is enough for the AI agent to remember what previously happened in the conversation, but fewer messages is more efficient.</li>
+</ul>
+</li>
+</ul>
+<hr data-line="72" class="code-line" dir="auto">
+<h3 data-line="74" class="code-line" dir="auto" id="step-5-system-prompt">Step 5. System Prompt</h3>
+<p data-line="76" class="code-line" dir="auto">Now, we customize the directions for our agent. Currently, it is acting just like GPT-5.5; the way that it responds might seem familiar! However, we can change this.</p>
+<p data-line="78" class="code-line" dir="auto">A <strong>system message</strong> is a set of directions for our LLM to follow. If you have made a custom GPT before, this is exactly what you supplied to customize it.</p>
+<ul data-line="80" class="code-line" dir="auto">
+<li data-line="80" class="code-line" dir="auto">Click into the <code>AI Agent</code> node. Then, click <code>Add Option → System Message</code>.</li>
+<li data-line="81" class="code-line" dir="auto">As an example, add this prompt:</li>
+</ul>
+<blockquote data-line="83" class="code-line" dir="auto">
+<p data-line="83" class="code-line" dir="auto">You are a cowboy philosopher who teaches using the Socratic method. Always respond in a folksy, cowboy-like manner, with colloquial Western language, metaphors, and imagery (horses, trails, saloons, dusty roads, ranch life, etc.). Your role is not to give direct answers, but to ask probing, thoughtful questions that guide the other person toward realizin' the truth for themselves. Stay curious, never condescending. Keep the tone friendly, rustic, and wise, as if you're sittin' 'round a campfire under the stars.</p>
+<ul data-line="85" class="code-line" dir="auto">
+<li data-line="85" class="code-line" dir="auto">Always answer with questions, not direct solutions.</li>
+<li data-line="86" class="code-line" dir="auto">Use cowboy idioms and imagery while still keeping your questions sharp and logical.</li>
+<li data-line="87" class="code-line" dir="auto">Encourage reflection by drawin' parallels to life on the frontier.</li>
+<li data-line="88" class="code-line" dir="auto">Avoid modern slang or technical jargon—stick to cowboy-style plain speech.</li>
+</ul>
+<p data-line="90" class="code-line" dir="auto">Example style:</p>
+<p data-line="92" class="code-line" dir="auto">Instead of saying &quot;Yes, that's correct&quot;, say &quot;Well partner, what makes ya reckon that's the right trail to ride down?&quot;</p>
+<p data-line="94" class="code-line" dir="auto">Instead of saying &quot;The answer is X&quot;, say &quot;Suppose ya took the north trail instead of the south—what do ya figure might happen then?&quot;</p>
+</blockquote>
+<p data-line="96" class="code-line" dir="auto">Now, send a chat message asking for the difference between correlation and causation. See how it responds.</p>
+<hr data-line="98" class="code-line" dir="auto">
+<h3 data-line="100" class="code-line" dir="auto" id="exercises">Exercises:</h3>
+<ol data-line="102" class="code-line" dir="auto">
+<li data-line="102" class="code-line" dir="auto"><strong>Tone:</strong> Change the system prompt so the bot acts like a pirate. What types of words should it use?</li>
+<li data-line="103" class="code-line" dir="auto"><strong>Wording:</strong> Try to make the bot limit its answer to 3 words. What happens if you push it and ask multiple questions?</li>
+<li data-line="104" class="code-line" dir="auto"><strong>Formatting:</strong> Ask the bot to answer in bullet points. Does it handle this well?</li>
+<li data-line="105" class="code-line" dir="auto"><strong>Limitations:</strong> What happens if you ask the bot something that it doesn't know, like your middle name?</li>
+</ol>
+<hr data-line="107" class="code-line" dir="auto">
+<h3 data-line="109" class="code-line" dir="auto" id="step-6-system-prompting-for-google-calendar-agent">Step 6. System Prompting for Google Calendar Agent</h3>
+<p data-line="111" class="code-line" dir="auto">Now, we have seen that we are able to change the agent's behavior. <em>This is extremely powerful</em>. With a well-thought-out system prompt, you can change GPT5's default behavior into something like interview practice, a storyteller, or more.</p>
+<p data-line="113" class="code-line" dir="auto">In our case, we want it to behave as a calendar agent that can update our schedule. There are some tricks to this that are covered in the exercises below. For now, begin to think about what you want the agent's behavior to be like. If you say, &quot;create an event tonight,&quot; should it clarify the specific timing or perhaps assume that the event is from 6–9 p.m.? If you don't specify the day, should it assume that you mean today?</p>
+<p data-line="115" class="code-line" dir="auto">For now, make the system prompt something like &quot;You are a calendar agent.&quot; Feel free to add more instructions; we just cannot leave that box empty, as it otherwise causes an error.</p>
+<hr data-line="117" class="code-line" dir="auto">
+<h3 data-line="119" class="code-line" dir="auto" id="step-7-first-tool-create-event">Step 7. First Tool: Create Event</h3>
+<p data-line="121" class="code-line" dir="auto">Now, our agent has a model chosen (in our case, GPT-5.5), memory, and a short system prompt. We now need it to connect to our calendar.</p>
+<ul data-line="123" class="code-line" dir="auto">
+<li data-line="123" class="code-line" dir="auto"><strong>Add node:</strong> Click the <code>+</code> for Tool under the AI Agent node and choose <code>Google Calendar</code>.</li>
+<li data-line="124" class="code-line" dir="auto">Create a credential for your Google Calendar.</li>
+<li data-line="125" class="code-line" dir="auto"><code>Tool Description</code> gives the agent more information on how to use this tool. In our case, we can leave it as <code>Set Automatically</code>, but we could also choose to describe it in-depth if we want the tool to be used for a specific case.</li>
+<li data-line="126" class="code-line" dir="auto"><code>Resource</code>: We will choose <code>Event</code>. However, we can also use the tool to manipulate full calendars, but we are focused on individual events.</li>
+<li data-line="127" class="code-line" dir="auto"><code>Operation</code>: Choose <code>Create</code>, since we want to make events.</li>
+<li data-line="128" class="code-line" dir="auto">Press the stars next to the <code>Start</code> and <code>End</code> options to let our agent decide when the event starts and ends.</li>
+<li data-line="129" class="code-line" dir="auto">In the additional fields, add the <code>Summary</code> option and also let the agent decide this. The <code>Summary</code> is the title of the event in your calendar.</li>
+<li data-line="130" class="code-line" dir="auto"><strong>Why this matters:</strong> This is the <em>first power</em> we give the agent—the ability to create new events.</li>
+</ul>
+<p data-line="132" class="code-line" dir="auto">Now, send a chat message adding an event to your calendar. Check that the event was actually created.</p>
+<blockquote data-line="134" class="code-line" dir="auto">
+<p data-line="134" class="code-line" dir="auto"><strong>Event Timing</strong></p>
+<p data-line="136" class="code-line" dir="auto">The event may have been created, but it's possible that it was put in your calendar at the wrong time or on the wrong day. This is because LLMs do not have a good sense of what the current time is. However, there's an easy way to counteract this: return to the system prompt for the AI agent. Make sure that you choose <code>Expression</code> instead of <code>Fixed</code> in the top right of the system message and then add the following text, which tells the LLM what the current time is and anchors it:</p>
+<pre><code data-line="138" class="code-line language-json" dir="auto">  Current time<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $now <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</blockquote>
+<hr data-line="142" class="code-line" dir="auto">
+<h3 data-line="144" class="code-line" dir="auto" id="exercises-1">Exercises:</h3>
+<p data-line="146" class="code-line" dir="auto">These exercises help walk through how we should prompt our agent and then also let us add other tools that we might want to use.</p>
+<ol data-line="148" class="code-line" dir="auto">
+<li data-line="148" class="code-line" dir="auto">Ask your agent to add an event tomorrow at 2 PM. What happens? Does it execute correctly?</li>
+<li data-line="149" class="code-line" dir="auto">Check what happens when you schedule an event for &quot;tonight&quot; or &quot;tomorrow morning&quot;. What time ranges are used for these events?</li>
+<li data-line="150" class="code-line" dir="auto">We should give a default amount of time for our event. Add this to your system prompt and try Exercise 1 again.</li>
+</ol>
+<hr data-line="152" class="code-line" dir="auto">
+<h3 data-line="154" class="code-line" dir="auto" id="step-8-delete-events-tool">Step 8. Delete Events Tool</h3>
+<p data-line="156" class="code-line" dir="auto">Now, we want to be able to remove events from our calendar.</p>
+<ul data-line="158" class="code-line" dir="auto">
+<li data-line="158" class="code-line" dir="auto"><strong>Add node:</strong> Click the <code>+</code> for Tool under the AI Agent node and choose <code>Google Calendar</code></li>
+<li data-line="159" class="code-line" dir="auto"><code>Operation</code>: choose <code>Delete</code></li>
+<li data-line="160" class="code-line" dir="auto">Choose which calendar you wish to delete events from</li>
+<li data-line="161" class="code-line" dir="auto"><code>Event ID</code>: press the stars to let the agent decide this value.</li>
+</ul>
+<p data-line="163" class="code-line" dir="auto">Google Calendar events are stored by an <code>Event ID</code>. However, our agent currently has no way of knowing by default what the ID of an event is. To see this, try to delete an event that you just made. This is why we introduce the <code>Get Many Events</code> tool.</p>
+<hr data-line="165" class="code-line" dir="auto">
+<h3 data-line="167" class="code-line" dir="auto" id="step-9-get-many-events-tool">Step 9. Get Many Events Tool</h3>
+<p data-line="169" class="code-line" dir="auto">This tool has multiple uses. Firstly, it allows us to retrieve events from our calendar, which is useful if we want to know our schedule for a given day. Additionally, when events are retrieved, our agent is able to gain valuable information about them, including timing, attendees, and crucially, the event ID.</p>
+<p data-line="171" class="code-line" dir="auto"><strong>Add node:</strong> Click the <code>+</code> for Tool under the AI Agent node and choose <code>Google Calendar</code></p>
+<ul data-line="173" class="code-line" dir="auto">
+<li data-line="173" class="code-line" dir="auto"><code>Operation</code>: choose <code>Get Many</code></li>
+<li data-line="174" class="code-line" dir="auto">Choose which calendar you want to use</li>
+<li data-line="175" class="code-line" dir="auto"><code>Return All</code> will return all events that match the specification. I leave this off for now and leave the limit at 50. Imagine that you ask about your schedule for the next month; this could be a lot of events!</li>
+<li data-line="176" class="code-line" dir="auto"><code>Before</code> and <code>After</code> let the agent search for events that occur in a specific time period. To do so, press the stars to let the agent automatically choose these.</li>
+<li data-line="177" class="code-line" dir="auto">We might want to let the agent come up with its own ways to search for events (for example, by title, attendees, etc.). To do so, click <code>Add option → Query</code> and then press the stars to let the agent choose this value.</li>
+</ul>
+<p data-line="179" class="code-line" dir="auto">Now, try to delete an event. It should work!</p>
+<hr data-line="181" class="code-line" dir="auto">
+<h3 data-line="183" class="code-line" dir="auto" id="exercises-2">Exercises:</h3>
+<ol data-line="185" class="code-line" dir="auto">
+<li data-line="185" class="code-line" dir="auto">Now, try to add an <code>Update Event</code> tool. What information do you want it to be able to update in events?</li>
+<li data-line="186" class="code-line" dir="auto">While our agent &quot;knows&quot; what tools are available to it (which we will discuss later), it is helpful in the system prompt to provide a description of the tools that it has available. Update the system prompt to describe the tools. This can help make it more accurate, especially for more complicated questions.</li>
+<li data-line="187" class="code-line" dir="auto">Add a <strong>clarifying question rule</strong>: if the agent isn't sure which event to delete or update, it should ask you first. For example, if I have two events called &quot;Pottery&quot; and want to delete one, we probably want it to know which one it is.</li>
+</ol>
+<h3 data-line="189" class="code-line" dir="auto" id="challenges">Challenges:</h3>
+<ol data-line="191" class="code-line" dir="auto">
+<li data-line="191" class="code-line" dir="auto">Try to give your agent a multi-step command. For example, &quot;delete the Marketing meeting today and then create a new one at 4 PM for one hour.&quot;
+<ol data-line="192" class="code-line" dir="auto">
+<li data-line="192" class="code-line" dir="auto">What steps are needed? Does it complete these steps?</li>
+<li data-line="193" class="code-line" dir="auto">If not, add instructions as necessary to make this more consistent. What works? What does not?</li>
+</ol>
+</li>
+<li data-line="194" class="code-line" dir="auto">When we try to implement new tools, things don't always work perfectly. For example, Google Calendar's API handles calls to create events with and without attendees slightly differently.
+<ol data-line="195" class="code-line" dir="auto">
+<li data-line="195" class="code-line" dir="auto">In the <code>Create Event</code> node, under <code>Additional Fields</code>, click <code>Add Field</code> and then <code>Attendees</code> and let the model automatically define it. Now, create an event without any attendees. You will see that it fails; it expects there to be attendees. Create two separate <code>Create Event</code> tools, one that includes attendees and one which does not, and provide a description for the AI agent, as well as when it should use each node.</li>
+<li data-line="196" class="code-line" dir="auto">Now, try to do the same thing for the <code>Update Event</code> tool.</li>
+</ol>
+</li>
+</ol>
+<hr data-line="198" class="code-line" dir="auto">
+<h2 data-line="200" class="code-line" dir="auto" id="part-2-exploratory-content-connecting-to-telegram">Part 2: Exploratory Content: Connecting to Telegram</h2>
+<p data-line="202" class="code-line" dir="auto">This part is designed to show interesting ways we can expand what we do in n8n and hopefully encourage you to explore further on your own!</p>
+<p data-line="204" class="code-line" dir="auto">For now, we will show how to connect to Telegram, a mobile messaging app. You can also connect services like Slack and WhatsApp, but Telegram is easier to get set up. We will use this to replace our <code>Chat Trigger</code> node.</p>
+<p data-line="206" class="code-line" dir="auto">To begin, follow the directions under the <code>Telegram</code> section <a href="./setup.html" data-href="./setup.html">here</a>.</p>
+<p data-line="208" class="code-line" dir="auto">Note that there are several places where you will need to add information about your bot and your account. This is explained next.</p>
+<hr data-line="210" class="code-line" dir="auto">
+<h3 data-line="212" class="code-line" dir="auto" id="step-1-trigger-telegram">Step 1. Trigger: Telegram</h3>
+<ul data-line="214" class="code-line" dir="auto">
+<li data-line="214" class="code-line" dir="auto"><strong>Add trigger:</strong> <code>On App Event → Telegram → On message</code>
+<ul data-line="215" class="code-line" dir="auto">
+<li data-line="215" class="code-line" dir="auto">Connect with your Telegram credential</li>
+<li data-line="216" class="code-line" dir="auto">By default, Telegram bots are public. We don't want everyone to be able to access our workflow (and by extent, our calendar). Click <code>Additional Fields → Restrict to User IDs</code> and put your Telegram user ID. You can find this by messaging <code>/start</code> to @userinfobot on Telegram and copying the user ID from there. This prevents other Telegram users from accessing your n8n workflow through your chatbot.</li>
+</ul>
+</li>
+<li data-line="217" class="code-line" dir="auto"><strong>What it does:</strong> This lets you receive messages from Telegram, which will ultimately make adding events to your calendar much quicker.</li>
+</ul>
+<p data-line="219" class="code-line" dir="auto">Test this by clicking <code>Execute Workflow</code> and then sending a message in Telegram to your bot. You should see it appear in n8n.</p>
+<hr data-line="221" class="code-line" dir="auto">
+<h3 data-line="223" class="code-line" dir="auto" id="step-2-modifying-the-ai-agent-node-and-memory">Step 2. Modifying the AI Agent Node and Memory</h3>
+<p data-line="225" class="code-line" dir="auto">The format of the message from the Telegram trigger and the chat trigger are slightly different, so we need to modify several things. First, connect the <code>+</code> from the Telegram trigger to the left side of the AI Agent node, where the chat trigger is also connected.</p>
+<ul data-line="227" class="code-line" dir="auto">
+<li data-line="227" class="code-line" dir="auto">Click into the <code>AI Agent</code> node.</li>
+<li data-line="228" class="code-line" dir="auto"><code>Source for Prompt (User Message)</code>: Define below</li>
+<li data-line="229" class="code-line" dir="auto"><code>Prompt (User Message)</code>: Put in</li>
+</ul>
+<pre><code data-line="231" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.message.text <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+<p data-line="235" class="code-line" dir="auto">This is just the text from our Telegram message. If you successfully received a message from Telegram, you can also see this text in the inputs on the left side of the screen; you can drag and drop this text into the box.</p>
+<p data-line="237" class="code-line" dir="auto">We also need to modify the memory, since it was previously formatted for the chat trigger:</p>
+<ul data-line="239" class="code-line" dir="auto">
+<li data-line="239" class="code-line" dir="auto">Click into the <code>Simple Memory</code> node.</li>
+<li data-line="240" class="code-line" dir="auto"><code>Session ID</code>: Define below</li>
+<li data-line="241" class="code-line" dir="auto"><code>Key</code>: Each message that we send gets stored in the memory with an associated key. When we provide a key here, the AI agent then will read the last (in our case) 20 messages with that key. For now, this does not affect us, but if we have multiple workflows that are using simple memory, giving them the same key would mean that those messages would be &quot;stored in the same place,&quot; which could mean that the AI agent then is reading messages from the wrong workflow. The easiest way to deal with this is to just give each workflow a unique key, which is just a string of letters, numbers, and characters.
+<ul data-line="242" class="code-line" dir="auto">
+<li data-line="242" class="code-line" dir="auto">Personally, I just like to use my Telegram user ID. However, if I had many workflows using Telegram and using this same user ID, this would cause problems like I mentioned above. To do this, copy and paste the following:</li>
+</ul>
+</li>
+</ul>
+<pre><code data-line="245" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Telegram Trigger&#x27;).item.json.message.from.id <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+<hr data-line="249" class="code-line" dir="auto">
+<h3 data-line="251" class="code-line" dir="auto" id="step-3-responding-in-telegram">Step 3. Responding in Telegram</h3>
+<ul data-line="253" class="code-line" dir="auto">
+<li data-line="253" class="code-line" dir="auto"><strong>Add node:</strong> <code>Telegram → Send a text message</code>
+<ul data-line="254" class="code-line" dir="auto">
+<li data-line="254" class="code-line" dir="auto">Chat ID: your Telegram user ID</li>
+<li data-line="255" class="code-line" dir="auto">Text:</li>
+</ul>
+</li>
+</ul>
+<pre><code data-line="257" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.output <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+<ul data-line="261" class="code-line" dir="auto">
+<li data-line="261" class="code-line" dir="auto">Next, take the <code>+</code> on the right side of the AI Agent node and attach it to the left side of this Telegram node. Congratulations, it is now able to take the output of the agent and send it back to you in Telegram!</li>
+</ul>
+</div>
+        </div><div class="code-line" data-line="264"></div></div>
+	
+</body>
+</html>
