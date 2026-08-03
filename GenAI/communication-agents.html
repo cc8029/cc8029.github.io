@@ -1,0 +1,1658 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Building Bilingual Comms Agents</title>
+	<link rel="stylesheet" href="./assets/github-markdown.css">
+	<style id="codex-code-collapse-style" data-codex-code-collapse>
+		.codex-code-collapse {
+			margin: 1em 0;
+		}
+	
+		.codex-code-collapse > .codex-code-summary {
+			cursor: pointer;
+			padding: 6px 10px;
+			font-weight: 600;
+			border: 1px solid #d0d7de;
+			border-radius: 6px;
+			background: #f6f8fa;
+		}
+	
+		.codex-code-copy-button {
+			float: right;
+			margin-left: 12px;
+			padding: 4px 10px;
+			color: #24292f;
+			font-size: 13px;
+			font-weight: 600;
+			line-height: 1.4;
+			cursor: pointer;
+			border: 1px solid #d0d7de;
+			border-radius: 6px;
+			background: #ffffff;
+		}
+	
+		.codex-code-copy-button:hover {
+			background: #f3f4f6;
+		}
+	
+		.codex-code-collapse > pre {
+			margin-top: 0;
+		}
+	</style>
+</head>
+<body class="vscode-body vscode-light scrollBeyondLastLine wordWrap">
+	<div class="markdown-body" dir="auto"><div
+            class="github-markdown-body"
+            data-color-mode="auto"
+            data-light-theme="light"
+            data-dark-theme="dark"
+        >
+            <div class="github-markdown-content"><span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 data-line="0" class="code-line" dir="auto" id="building-multi-channel-communications-agents">Building Multi-Channel Communications Agents</h1>
+<p data-line="2" class="code-line" dir="auto">So far, we have built agentic workflows involving a single agent. However,
+more complex tasks often require multiple agents to collaborate. In this section, we will use <strong>sub-workflows</strong> to orchestrate collaboration among multiple agents.</p>
+<p data-line="5" class="code-line" dir="auto">Sub-workflows also enable us to build custom tools for AI agents. They make our systems more modular by allowing us to reuse components across multiple applications. For example, consider the Google Calendar agent we built in the previous session. We may want to use this agent in several workflows, such as a personal assistant or a workflow that sends event invitations and reminders to multiple recipients.
+By turning the calendar agent into a sub-workflow, we can invoke it from different workflows instead of duplicating the same logic each time.</p>
+<p data-line="8" class="code-line" dir="auto">To illustrate this, we consider the marketing and communications team at a hypothetical education company, <strong>LumaBridge Education</strong>, whose mission is to expand access to high-quality bilingual education. The team creates content for multiple channels, including short-form social media posts (e.g., Facebook and X) and long-form articles (e.g., WeChat Official Account).
+Because the company serves both English- and Chinese-speaking audiences,
+all social media content should be bilingual.
+The team hopes to use AI to efficiently create high-quality, engaging content.</p>
+<hr data-line="13" class="code-line" dir="auto">
+<h2 data-line="15" class="code-line" dir="auto" id="learning-objectives">Learning Objectives</h2>
+<ul data-line="17" class="code-line" dir="auto">
+<li data-line="17" class="code-line" dir="auto">Understanding sub-workflows and calling them both as tools and as parts of our main workflow</li>
+<li data-line="18" class="code-line" dir="auto">Building Hierarchical agents</li>
+<li data-line="19" class="code-line" dir="auto">Human-in-the-loop</li>
+</ul>
+<hr data-line="21" class="code-line" dir="auto">
+<h2 data-line="23" class="code-line" dir="auto" id="core-content">Core Content</h2>
+<h3 data-line="25" class="code-line" dir="auto" id="the-workflow">The Workflow</h3>
+<p data-line="27" class="code-line" dir="auto">Our workflow will</p>
+<ol data-line="29" class="code-line" dir="auto">
+<li data-line="29" class="code-line" dir="auto">Receive ideas on social media posts and article releases from a form.</li>
+<li data-line="30" class="code-line" dir="auto">Use AI agents to create first drafts based on these details.</li>
+<li data-line="31" class="code-line" dir="auto">Present the drafts to a member of the communications team for review, revision, and final approval.</li>
+<li data-line="32" class="code-line" dir="auto">Translate social media posts to Chinese using an appropriate tone and style.</li>
+<li data-line="33" class="code-line" dir="auto">Send final drafts by email to the communications team for publication.</li>
+</ol>
+<h3 data-line="35" class="code-line" dir="auto" id="sub-workflows">Sub-workflows</h3>
+<p data-line="37" class="code-line" dir="auto">Article releases and social media posts require different formats and styles. Social media posts should capture attention in just a few sentences, whereas article releases are typically more formal and comprehensive. While a single agent could handle both tasks, its performance may suffer in practice when it is overloaded with a wide variety of tasks. Decomposing the workflow into two specialized agents reduces the complexity of each agent and can improve overall reliability.
+In this example, a single agent would likely be sufficient. However, we split the workflow into separate agents primarily to illustrate an alternative design pattern that you can apply to more complex projects.</p>
+<p data-line="40" class="code-line" dir="auto">In n8n, a <strong>sub-workflow</strong> is a workflow that is called by another workflow. We use this to create a <strong>hierarchical agent structure</strong>, where we have one agent that serves simply as a &quot;supervisor&quot; of two other agents, one of which only creates social media posts and the other that only creates article releases. The supervisor agent designates tasks to the social media and article release agents, which then will return posts to the supervisor.</p>
+<p data-line="42" class="code-line" dir="auto">To do this, we start by creating two workflows called <code>Article Release Agent</code> and <code>Social Media Agent</code>. These will be fairly simple workflows. Copy and paste in the following code and explore the two agents.</p>
+<p data-line="44" class="code-line" dir="auto">Article Release Agent:</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (160 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="46" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;workflowInputs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span>
+            <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;title&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.executeWorkflowTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-192</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-96</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;a3198d62-f816-442b-806e-6f68fe7cf0a0&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;When Executed by Another Workflow&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;schemaType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;manual&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;inputSchema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;{\n  \&quot;type\&quot;: \&quot;object\&quot;,\n  \&quot;required\&quot;: [\&quot;article_release_title\&quot;, \&quot;article_release_body\&quot;],\n  \&quot;additionalProperties\&quot;: false,\n  \&quot;properties\&quot;: {\n    \&quot;article_release_title\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;Short headline.\&quot; },\n    \&quot;article_release_body\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;Article release body text (headline NOT duplicated).\&quot; }\n  }\n}&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.outputParserStructured&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">176</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">112</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;48b44509-68cc-4557-b915-fc00de6bfc4d&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Structured Output Parser&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">32</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">112</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ebcc1af0-a7b3-4cf1-93c6-1f3c60bdfa1d&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;assignments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;assignments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;9625122e-1bc8-4230-a6e0-ae94b835f49b&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;article_release_body&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.output.article_release_body }}\n\nFounded in 2022, LumaBridge Education is an education company that creates bilingual programs, digital tools, and live experiences for Chinese- and English-speaking audiences.&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;includeOtherFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;include&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;selected&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;includeFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;output.article_release_title&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.set&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">368</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-96</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2b7188e6-40c7-4341-b292-50e344846f29&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Edit Fields&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;promptType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;define&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Text: {{ $json.text }}\nTitle: {{ $json.title }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;hasOutputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Act as the in-house marketing and communications specialist for LumaBridge Education, an education company whose mission is to expand access to high-quality bilingual education through programs, digital tools, and live experiences for Chinese- and English-speaking audiences. You have expertise in brand storytelling, public relations, education communications, and multicultural marketing.\n\nUsing the content provided, write a professional English-language article release in AP style. The article should be clear, accessible, engaging, and ready for distribution to news outlets.\n\n*Do not write in Chinese; this will later be translated.*&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">32</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-96</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;81bec69c-9da8-4754-9542-84d1e93c5206&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;When Executed by Another Workflow&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Structured Output Parser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;AI Agent&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Edit Fields&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<p data-line="209" class="code-line" dir="auto">Social Media Agent:</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (120 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="211" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;workflowInputs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.executeWorkflowTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-240</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-80</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;7bdf3cfc-6cf5-4c89-8e62-d6a4fc8dc5cd&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;When Executed by Another Workflow&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;schemaType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;manual&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;inputSchema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;{\n  \&quot;type\&quot;: \&quot;object\&quot;,\n  \&quot;required\&quot;: [\&quot;social_media_body\&quot;],\n  \&quot;additionalProperties\&quot;: false,\n  \&quot;properties\&quot;: {\n    \&quot;social_media_body\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;One-paragraph social post.\&quot; }\n}\n}&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.outputParserStructured&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">128</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">128</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;22556be4-6679-4547-90f6-a28e9ab418f1&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Structured Output Parser&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-32</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">128</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;a1df432e-3ef7-474a-9670-ca1686bec1d4&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;promptType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;define&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.text }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;hasOutputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Act as the in-house marketing and communications specialist for LumaBridge Education, an education company whose mission is to expand access to high-quality bilingual education through programs, digital tools, and live experiences for Chinese- and English-speaking audiences. You have expertise in brand storytelling, public relations, education communications, and multicultural marketing.\n\nUsing the content provided, create a polished English-language social media post that is accessible, engaging, and aligned with LumaBridge Education&#x27;s mission and brand voice. \n\nThe post is primarily for Facebook and Rednote. Write one unified post that can be used across both platforms; do not create separate versions for different platforms.\n\n*Do not write in Chinese; this will later be translated.*&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-32</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-80</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;d3de2ee4-b5cd-4e7f-b11b-a2011fb25eb4&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Social Media Agent&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;When Executed by Another Workflow&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Social Media Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Structured Output Parser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Social Media Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Social Media Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<p data-line="334" class="code-line" dir="auto">Make sure to select your credentials for the OpenAI model. You will also need to hit the <code>Publish</code> button in the top right to make these workflows available for the later steps.</p>
+<p data-line="336" class="code-line" dir="auto">You should recognize all of the nodes besides the <code>When Executed by Another Workflow</code> trigger. This allows us to call the workflow from another one. Click into one of these nodes. While we can let all data be accepted, we choose the <code>Input data mode</code> as <code>Define using fields below</code> to ensure that our data arrives the way that we want it.</p>
+<p data-line="338" class="code-line" dir="auto">Within n8n, there are two ways in which we can call these sub-workflows that start with the <code>When Executed by Another Workflow</code> trigger.</p>
+<ol data-line="340" class="code-line" dir="auto">
+<li data-line="340" class="code-line" dir="auto">Within a workflow using the <code>Execute Sub-workflow</code> node. This is helpful if we have many workflows that have one part of the workflow that is exactly the same. Instead of rebuilding it from scratch, we can just build it once as a separate workflow and then use the <code>Execute Sub-workflow</code> node in each other workflow that needs that process.</li>
+<li data-line="341" class="code-line" dir="auto">As a tool using the <code>Call n8n Workflow Tool</code>. This lets us build custom tools for our agents to use and then call when they deem necessary.</li>
+</ol>
+<hr data-line="343" class="code-line" dir="auto">
+<h3 data-line="345" class="code-line" dir="auto" id="building-the-comms-agent-part-1-first-draft">Building the Comms Agent Part 1: First Draft</h3>
+<p data-line="347" class="code-line" dir="auto">We now build our main agent, following the steps below.</p>
+<h4 data-line="349" class="code-line" dir="auto" id="step-1-n8n-form">Step 1: n8n Form</h4>
+<p data-line="351" class="code-line" dir="auto">We need a way to start the workflow. In this case, we want team members to be able to give raw information required to create posts. Specifically, we need a <strong>post title</strong> (for article releases), a <strong>post description</strong> (containing any relevant details), and the <strong>medium</strong> (social media post, article release, or both).</p>
+<ul data-line="353" class="code-line" dir="auto">
+<li data-line="353" class="code-line" dir="auto"><strong>Add node</strong>: <code>n8n Form → On new n8n Form event</code>
+<ul data-line="354" class="code-line" dir="auto">
+<li data-line="354" class="code-line" dir="auto">Add a <code>Form Title</code> (what the form is called)</li>
+<li data-line="355" class="code-line" dir="auto">Click <code>Add Form Element</code>
+<ul data-line="356" class="code-line" dir="auto">
+<li data-line="356" class="code-line" dir="auto">Label: <code>Title</code></li>
+<li data-line="357" class="code-line" dir="auto">Element Type: <code>Text Input</code></li>
+</ul>
+</li>
+<li data-line="358" class="code-line" dir="auto">Click <code>Add Form Element</code>
+<ul data-line="359" class="code-line" dir="auto">
+<li data-line="359" class="code-line" dir="auto">Label: <code>Content</code></li>
+<li data-line="360" class="code-line" dir="auto">Element Type: <code>Text Input</code></li>
+<li data-line="361" class="code-line" dir="auto">Make this a required field</li>
+</ul>
+</li>
+<li data-line="362" class="code-line" dir="auto">Click <code>Add Form Element</code>
+<ul data-line="363" class="code-line" dir="auto">
+<li data-line="363" class="code-line" dir="auto">Label: <code>Format</code></li>
+<li data-line="364" class="code-line" dir="auto">Element Type: <code>Checkboxes</code></li>
+<li data-line="365" class="code-line" dir="auto">Make two checkboxes, <code>Article Release</code> and <code>Social Media Post</code></li>
+<li data-line="366" class="code-line" dir="auto">Limit Selection: <code>Unlimited</code> (since we want users to be able to draft social media posts and article releases simultaneously). You can also use <code>Range</code> of 1 to 2.</li>
+<li data-line="367" class="code-line" dir="auto">Make this a required field</li>
+</ul>
+</li>
+<li data-line="368" class="code-line" dir="auto">Click <code>Add Form Element</code>
+<ul data-line="369" class="code-line" dir="auto">
+<li data-line="369" class="code-line" dir="auto">Label: <code>Your name</code></li>
+<li data-line="370" class="code-line" dir="auto">Element Type: <code>Text Input</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote data-line="373" class="code-line" dir="auto">
+<p data-line="373" class="code-line" dir="auto"><strong>Alternative: Google Form</strong></p>
+<p data-line="375" class="code-line" dir="auto">We use the n8n Form due to its simplicity. However, it is fairly easy to connect this to a Google Form. To do so, make a Google Form and then under <code>Responses</code>, click <code>Link to Sheets</code>. Now, you have a Google Sheet such that if someone responds to the Google Form, it will appear in the Google Sheet (i.e., a row is appended). We can then use the Google Sheet trigger in n8n to start the workflow.</p>
+<p data-line="377" class="code-line" dir="auto"><strong>Remember:</strong> for your project, you only need an MVP, and we want you to focus on demonstrating the value of AI rather than on integrating with external services, which might be tricky.</p>
+</blockquote>
+<hr data-line="379" class="code-line" dir="auto">
+<h4 data-line="381" class="code-line" dir="auto" id="step-2-first-draft-agent">Step 2: First Draft Agent</h4>
+<p data-line="383" class="code-line" dir="auto">We will use a <strong>hierarchical agent</strong> approach to get the first draft of our social media posts/article releases. Specifically, the main agent serves as a supervisor/commander and delegates responsibility to create these posts to the Article Release Agent and the Social Media Agent.</p>
+<ul data-line="385" class="code-line" dir="auto">
+<li data-line="385" class="code-line" dir="auto">
+<p data-line="385" class="code-line" dir="auto"><strong>Add node:</strong> <code>AI Agent</code></p>
+<ul data-line="387" class="code-line" dir="auto">
+<li data-line="387" class="code-line" dir="auto">
+<p data-line="387" class="code-line" dir="auto">Add an appropriate chat model and <code>Simple Memory</code>. For <code>Session ID</code>, choose <code>Define below</code>. We want the model to remember what it has just done for the given execution in case it makes an error and needs to retry, so for the <code>Key</code>, an easy choice would be <code>{{ $json.submittedAt }}</code>.
+Assuming that no two form submissions are received within the same second, this key will be unique for each submission. As a result, the memory will store only the messages associated with that specific form submission.</p>
+</li>
+<li data-line="390" class="code-line" dir="auto">
+<p data-line="390" class="code-line" dir="auto"><code>Prompt</code>:</p>
+<pre><code data-line="392" class="code-line language-json" dir="auto">Title<span class="hljs-punctuation">:</span>  <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.Title <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+Content<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.Content <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+Format(s)<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.Format <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="398" class="code-line" dir="auto">
+<p data-line="398" class="code-line" dir="auto"><code>System Message</code>:</p>
+<pre><code data-line="400" class="code-line language-text" dir="auto">Act as the in-house marketing and communications specialist for LumaBridge Education, an education company whose mission is to expand access to high-quality bilingual education through programs, digital tools, and live experiences for Chinese- and English-speaking audiences. You have expertise in brand storytelling, public relations, education communications, and multicultural marketing.
+
+Using the content provided, your role is to use your tools to create English-language social media posts and/or article releases (based on the formats) that are both accessible and engaging.
+
+When the format includes social media, use the Social Media tool to write posts. Similarly, use the Article Release tool to write article releases. Do not write these social media posts/article releases yourself; always use the tools to do so.
+</code></pre>
+</li>
+</ul>
+</li>
+<li data-line="408" class="code-line" dir="auto">
+<p data-line="408" class="code-line" dir="auto">Attach a <code>Structured Output Parser</code> and choose <code>Define using JSON Schema</code>. For the input schema, put</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (10 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="410" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;object&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;social_media_body&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;article_release_title&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;article_release_body&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;additionalProperties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;properties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;social_media_body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;One-paragraph social post. May be empty.&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;article_release_title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Short headline. May be empty.&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;article_release_body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Article release body text (headline NOT duplicated). May be empty.&quot;</span> <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+</li>
+</ul>
+<p data-line="423" class="code-line" dir="auto">This means that this agent will output a article release and title, as well as a social media post, based on the input.</p>
+<hr data-line="425" class="code-line" dir="auto">
+<h4 data-line="427" class="code-line" dir="auto" id="step-3-sub-workflow-calls">Step 3: Sub-Workflow Calls</h4>
+<p data-line="429" class="code-line" dir="auto">Now, article the <code>+</code> for <code>Tools</code> and select <code>Call n8n Workflow Tool</code>. This is how we call a sub-workflow. Choose the Article Release Agent. You should have two <code>Workflow Inputs</code> appear: <strong>text</strong> and <strong>title</strong>. Let these be chosen automatically by the model. Now, repeat with the Social Media Agent and its one input of <strong>text</strong>. This lets our agent now access these workflows as tools and choose the inputs to the workflows.</p>
+<hr data-line="431" class="code-line" dir="auto">
+<h4 data-line="433" class="code-line" dir="auto" id="exercises">Exercises</h4>
+<ol data-line="435" class="code-line" dir="auto">
+<li data-line="435" class="code-line" dir="auto">Add a question to the n8n Form that accepts the user’s email.</li>
+<li data-line="436" class="code-line" dir="auto">Try to change the Social Media Agent to never use hashtags.</li>
+<li data-line="437" class="code-line" dir="auto"><strong>Challenge:</strong> Create another workflow that drafts posts specifically for X/Twitter and obeys the character limit and add it to the First Draft Agent’s tools.</li>
+</ol>
+<hr data-line="439" class="code-line" dir="auto">
+<h3 data-line="441" class="code-line" dir="auto" id="building-the-comms-agent-part-2-human-in-the-loop-edits">Building the Comms Agent Part 2: Human-in-the-Loop Edits</h3>
+<p data-line="443" class="code-line" dir="auto">It would be reckless for an organization to directly post AI-generated content without human overview. The content might not match the tone of the organization or may omit important information.</p>
+<p data-line="445" class="code-line" dir="auto">We will implement a <strong>human-in-the-loop</strong> architecture, where our workflow will wait for a member of the communications team to approve the post before sending it on. However, the team member should also be able to suggest edits and iterate on posts before sending them out, as well.</p>
+<p data-line="447" class="code-line" dir="auto">We will walk through each step, but you can also copy and paste the following into n8n and then connect the output of the <code>First Draft Agent</code> to <code>Input 1</code> of the <code>Merge</code> node.</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (236 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="449" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;## Human-in-the-loop&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">576</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1072</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.stickyNote&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">304</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-512</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;01fd7085-1d77-4691-8259-fbd2a0a58185&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Sticky Note2&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.merge&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;0e880bb4-a28d-458d-9ebe-198b4d5a9194&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Merge&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;promptType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;define&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Title: {{ $(&#x27;Merge&#x27;).item.json.output.article_release_title }}\nArticle Release body:{{ $(&#x27;Merge&#x27;).item.json.output.article_release_body }}\nSocial Media body: {{ $(&#x27;Merge&#x27;).item.json.output.social_media_body }}\nEdits: {{ $json.Edits }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;hasOutputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Act as the in-house marketing and communications specialist for LumaBridge Education, an education company whose mission is to expand access to high-quality bilingual education through programs, digital tools, and live experiences for Chinese- and English-speaking audiences. You have expertise in brand storytelling, public relations, education communications, and multicultural marketing.\n\nYou will receive:\n1. A draft message, which may include:\n  - an article release title and body,\n  - a social media post, or\n  - a combination of the above.\n2. Requested edits or revision instructions.\nYour task is to revise the drafts to reflect the requested edits and return them to the user. These will be article releases and social media posts associated with company events and public engagement, targeting a diverse Chinese- and English-speaking audience in Shanghai.\n\nPreserve the author&#x27;s intent, factual accuracy, and overall message. Return only the revised message.&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1056</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-320</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;732c1ab1-adca-4514-8480-2cc3134d99c4&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Editor&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;builtInTools&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1056</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-96</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;c94e0776-15ba-4233-9f9f-5958de0082a4&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model1&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;schemaType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;manual&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;inputSchema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;{\n  \&quot;type\&quot;: \&quot;object\&quot;,\n  \&quot;required\&quot;: [\&quot;social_media_body\&quot;, \&quot;article_release_title\&quot;, \&quot;article_release_body\&quot;],\n  \&quot;additionalProperties\&quot;: false,\n  \&quot;properties\&quot;: {\n    \&quot;social_media_body\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;One-paragraph social post. May be empty.\&quot; },\n    \&quot;article_release_title\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;Short headline. May be empty.\&quot; },\n    \&quot;article_release_body\&quot;: { \&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;Article release body text (headline NOT duplicated). May be empty.\&quot; }\n  }\n}&quot;</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.outputParserStructured&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1216</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-96</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;d643e180-30b3-4af2-9fa5-bf703c4ffc3b&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Structured Output Parser1&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;resume&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;form&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;formTitle&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Post Edit Form&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;formDescription&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Article Release Title: \n{{ $json.output.article_release_title }}\n\nArticle Release Body: \n{{ $json.output.article_release_body }}\n\nSocial Media Body: \n{{ $json.output.social_media_body }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;formFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;fieldLabel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Approved?&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;fieldType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;radio&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;fieldOptions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+                <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+                  <span class="hljs-punctuation">{</span>
+                    <span class="hljs-attr">&quot;option&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Yes&quot;</span>
+                  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+                  <span class="hljs-punctuation">{</span>
+                    <span class="hljs-attr">&quot;option&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;No&quot;</span>
+                  <span class="hljs-punctuation">}</span>
+                <span class="hljs-punctuation">]</span>
+              <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;requiredField&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+            <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;fieldLabel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Edits&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.wait&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">608</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;c7740873-f1c5-49be-8815-462abacd80d7&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Wait&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3e1ee735-30d5-46b7-833a-5bcd153c89de&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;conditions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;caseSensitive&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;leftValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;typeValidation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;strict&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span>
+          <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;conditions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ef1a8ca8-279d-4d36-aa7b-9fb7df49b7bf&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;leftValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json[\&quot;Approved?\&quot;] }}&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;rightValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Yes&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;operator&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+                <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span>
+                <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;equals&quot;</span><span class="hljs-punctuation">,</span>
+                <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;filter.operator.equals&quot;</span>
+              <span class="hljs-punctuation">}</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;combinator&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;and&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.if&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">816</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;7855444b-ca9c-4160-976c-d35eb8817401&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Approved?&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;Merge&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Wait&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Editor&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Merge&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model1&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Editor&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Structured Output Parser1&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Editor&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_outputParser&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Wait&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Approved?&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Approved?&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Editor&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<hr data-line="688" class="code-line" dir="auto">
+<h4 data-line="690" class="code-line" dir="auto" id="step-1-merge">Step 1: Merge</h4>
+<ul data-line="692" class="code-line" dir="auto">
+<li data-line="692" class="code-line" dir="auto"><strong>Add node:</strong> <code>Merge</code>. Choose mode as <code>Append</code> with 2 inputs and attach the <code>First Draft Agent</code> to one of the inputs. We will assume that you attach it to <code>Input 1</code> for now.</li>
+<li data-line="693" class="code-line" dir="auto"><strong>What it does:</strong> We are going to make a loop. This is an easy way to ensure that we can get an input from 2 different sources: our initial trigger or another round of the loop.</li>
+</ul>
+<hr data-line="695" class="code-line" dir="auto">
+<h4 data-line="697" class="code-line" dir="auto" id="step-2-wait-for-human-response">Step 2: Wait for Human Response</h4>
+<ul data-line="699" class="code-line" dir="auto">
+<li data-line="699" class="code-line" dir="auto">
+<p data-line="699" class="code-line" dir="auto"><strong>Add node:</strong> <code>Wait</code></p>
+<ul data-line="700" class="code-line" dir="auto">
+<li data-line="700" class="code-line" dir="auto">
+<p data-line="700" class="code-line" dir="auto"><code>Resume</code>: Choose <code>On Form Submitted</code>. This lets us present information as a form for the team to review.</p>
+</li>
+<li data-line="701" class="code-line" dir="auto">
+<p data-line="701" class="code-line" dir="auto"><code>Form Title</code>: I chose <code>Post Edit Form</code>, but this can be anything. It just presents as the title of the form to the user.</p>
+</li>
+<li data-line="702" class="code-line" dir="auto">
+<p data-line="702" class="code-line" dir="auto"><code>Form Description</code>: We want to include what the posts look like so the user can review them, so use something like</p>
+<pre><code data-line="704" class="code-line language-json" dir="auto">Article Release Title<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.output.article_release_title <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Article Release Body<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.output.article_release_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Social Media Body<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.output.social_media_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="712" class="code-line" dir="auto">
+<p data-line="712" class="code-line" dir="auto"><code>Respond When</code>: <code>Form is Submitted</code></p>
+</li>
+<li data-line="713" class="code-line" dir="auto">
+<p data-line="713" class="code-line" dir="auto">This is another n8n form. We need to add several form elements:</p>
+<ul data-line="714" class="code-line" dir="auto">
+<li data-line="714" class="code-line" dir="auto"><code>Field Name</code>: <code>Approved?</code>
+<ul data-line="715" class="code-line" dir="auto">
+<li data-line="715" class="code-line" dir="auto"><code>Element Type</code>: Choose <code>Radio Buttons</code> and label them <code>Yes</code> and <code>No</code>. You can experiment with other types, but this just lets users easily approve or not.</li>
+<li data-line="716" class="code-line" dir="auto">Make this a required field.</li>
+</ul>
+</li>
+<li data-line="717" class="code-line" dir="auto"><code>Field Name</code>: <code>Edits</code>
+<ul data-line="718" class="code-line" dir="auto">
+<li data-line="718" class="code-line" dir="auto"><code>Element Type</code>: <code>Text Input</code>. This will let users add edits if they want.</li>
+<li data-line="719" class="code-line" dir="auto">This does not need to be required. If a user is approving the post, then they won't be suggesting edits.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li data-line="721" class="code-line" dir="auto">
+<p data-line="721" class="code-line" dir="auto"><strong>What it does:</strong> This creates a form where the communications team can either approve or reject the posts and provide feedback/edits.</p>
+</li>
+</ul>
+<hr data-line="723" class="code-line" dir="auto">
+<h4 data-line="725" class="code-line" dir="auto" id="step-3-approval">Step 3: Approval</h4>
+<ul data-line="728" class="code-line" dir="auto">
+<li data-line="728" class="code-line" dir="auto">
+<p data-line="728" class="code-line" dir="auto"><strong>Add node:</strong> <code>If</code></p>
+<ul data-line="729" class="code-line" dir="auto">
+<li data-line="729" class="code-line" dir="auto">
+<p data-line="729" class="code-line" dir="auto">value1:</p>
+<pre><code data-line="731" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json<span class="hljs-punctuation">[</span><span class="hljs-string">&quot;Approved?&quot;</span><span class="hljs-punctuation">]</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="735" class="code-line" dir="auto">
+<p data-line="735" class="code-line" dir="auto">value2:</p>
+<pre><code data-line="736" class="code-line" dir="auto">Yes 
+</code></pre>
+</li>
+</ul>
+</li>
+<li data-line="740" class="code-line" dir="auto">
+<p data-line="740" class="code-line" dir="auto"><strong>What it does:</strong> If the user approves the posts, then we take the <code>true</code> branch. Otherwise, we take the <code>false</code> branch and continue to edit.</p>
+</li>
+</ul>
+<hr data-line="742" class="code-line" dir="auto">
+<h4 data-line="744" class="code-line" dir="auto" id="step-4-the-editor">Step 4: The Editor</h4>
+<ul data-line="746" class="code-line" dir="auto">
+<li data-line="746" class="code-line" dir="auto">
+<p data-line="746" class="code-line" dir="auto"><strong>Add node:</strong> <code>AI Agent</code>. Connect this to the <code>false</code> output from the <code>If</code> node.</p>
+<ul data-line="748" class="code-line" dir="auto">
+<li data-line="748" class="code-line" dir="auto">
+<p data-line="748" class="code-line" dir="auto"><code>Prompt (User Message)</code>:</p>
+<pre><code data-line="750" class="code-line language-json" dir="auto">Title<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_title <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+Article Release body<span class="hljs-punctuation">:</span><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+Social Media body<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.social_media_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+Edits<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $json.Edits <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="757" class="code-line" dir="auto">
+<p data-line="757" class="code-line" dir="auto"><code>System Message</code>:</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (11 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="759" class="code-line language-text" dir="auto">Act as the in-house marketing and communications specialist for LumaBridge Education, an education company whose mission is to expand access to high-quality bilingual education through programs, digital tools, and live experiences for Chinese- and English-speaking audiences. You have expertise in brand storytelling, public relations, education communications, and multicultural marketing.
+
+You will receive:
+1. A draft message, which may include:
+  - an article release title and body,
+  - a social media post, or
+  - a combination of the above.
+2. Requested edits or revision instructions.
+Your task is to revise the drafts to reflect the requested edits and return them to the user. These will be article releases and social media posts associated with company events and public engagement, targeting a diverse Chinese- and English-speaking audience in Shanghai.
+
+Preserve the author&#x27;s intent, factual accuracy, and overall message. Return only the revised message.
+</code></pre>
+</details>
+</li>
+<li data-line="773" class="code-line" dir="auto">
+<p data-line="773" class="code-line" dir="auto">Make sure to add an <code>OpenAI Chat Model</code> node.</p>
+</li>
+<li data-line="775" class="code-line" dir="auto">
+<p data-line="775" class="code-line" dir="auto">Connect a <code>Structure Output Parser</code> with the JSON schema</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (10 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="777" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;object&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;social_media_body&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;article_release_title&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;article_release_body&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;additionalProperties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;properties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;social_media_body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;One-paragraph social post. May be empty.&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;article_release_title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Short headline. May be empty.&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;article_release_body&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Article release body text (headline NOT duplicated). May be empty.&quot;</span> <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+</li>
+</ul>
+</li>
+<li data-line="790" class="code-line" dir="auto">
+<p data-line="790" class="code-line" dir="auto"><strong>What it does:</strong> This takes the posts and the edits and incorporates them. Note that in the system message, we still want to provide some information about the context so it does not stray too far from the original message.</p>
+</li>
+<li data-line="792" class="code-line" dir="auto">
+<p data-line="792" class="code-line" dir="auto">Finally, connect the output to <code>Input 2</code> of the <code>Merge</code> node.</p>
+</li>
+</ul>
+<hr data-line="794" class="code-line" dir="auto">
+<h4 data-line="796" class="code-line" dir="auto" id="exercises-1">Exercises</h4>
+<ol data-line="798" class="code-line" dir="auto">
+<li data-line="798" class="code-line" dir="auto">What happens if the reviewer rejects the post but does not provide any edits?</li>
+<li data-line="799" class="code-line" dir="auto">We used the Wait node, but n8n has many human-in-the-loop options. Try to set this up with Gmail instead. What needs to change?</li>
+<li data-line="800" class="code-line" dir="auto">It’s possible that if we were to reject a post many times that the tone of the message would stray from our original attempt. While this might be what we want, this could also result in the message sounding worse and more generic AI-generated content. What steps could we take at this point to counteract this?</li>
+<li data-line="801" class="code-line" dir="auto">Social media posts often have character limits. Try to change the workflow to enforce a limit of 500 characters.</li>
+<li data-line="802" class="code-line" dir="auto"><strong>Challenge:</strong> Right now, a reviewer cannot approve a article release but reject a social media post, for example. Try to change the workflow so that article releases and social media posts are routed separately.</li>
+</ol>
+<hr data-line="804" class="code-line" dir="auto">
+<h3 data-line="806" class="code-line" dir="auto" id="building-the-communications-agent-part-3-translation-and-sending">Building the Communications Agent Part 3: Translation and Sending</h3>
+<p data-line="808" class="code-line" dir="auto">For this session, we will make the simplifying assumption that all social media posts are bilingual, while all article releases are written in English. We will revisit this assumption and extend the workflow in the exercises.</p>
+<p data-line="810" class="code-line" dir="auto">Below is the code that you can copy for this portion. Connect the <code>true</code> output of the <code>Approved?</code> node to the input of the <code>Needs Chinese Translation?</code> node.</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (175 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="812" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;promptType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;define&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Text: {{ $(&#x27;Merge&#x27;).item.json.output.social_media_body }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Act as a professional English-to-Chinese translator and communications specialist with expertise in brand storytelling, public relations, education communications, and multicultural marketing. You will be given English-language text to translate into Chinese. Use an approachable, engaging tone that is appropriate for social media outreach.\n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1808</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-640</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2a0f0488-c3dc-4947-9772-c40ca196a162&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Translator&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1808</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-448</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;0f502c21-7092-4dc6-aaf2-0185b1c455a0&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model2&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;conditions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;caseSensitive&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;leftValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;typeValidation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;strict&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;version&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span>
+          <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;conditions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;4ceb4881-fe73-4b14-933c-644d65201a7d&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;leftValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $(&#x27;On form submission&#x27;).item.json.Format }}&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;rightValue&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Social Media Post&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;operator&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+                <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;array&quot;</span><span class="hljs-punctuation">,</span>
+                <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;contains&quot;</span><span class="hljs-punctuation">,</span>
+                <span class="hljs-attr">&quot;rightType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;any&quot;</span>
+              <span class="hljs-punctuation">}</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;combinator&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;and&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.if&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1456</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-432</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;aa98e839-1f8d-4a37-b5a1-88ef1cf3a68f&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Needs Chinese Translation?&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;sendTo&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;subject&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Draft of Post&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;emailType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Article Release title: {{ $(&#x27;Merge&#x27;).item.json.output.article_release_title }}\n\nArticle Release body: {{ $(&#x27;Merge&#x27;).item.json.output.article_release_body }}\n\nSocial Media Post body (English): {{ $(&#x27;Merge&#x27;).item.json.output.social_media_body }}\n\nSocial Media Post body (Chinese): {{ $(&#x27;Translator&#x27;).item.json.output }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.gmail&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">2176</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-640</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;e70f660e-291e-4be4-9376-25965027ba98&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a message (with Chinese)&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;5541a481-a428-46b1-891b-967e41f8c545&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;gmailOAuth2&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;LIvkUlCTmKQyWNRx&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Gmail OAuth2 API&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;sendTo&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;subject&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Draft of Post&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;emailType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;=Article Release title: {{ $(&#x27;Merge&#x27;).item.json.output.article_release_title }}\n\nArticle Release body: {{ $(&#x27;Merge&#x27;).item.json.output.article_release_body }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.gmail&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1808</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">-256</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;47b809ec-88d5-4dcb-9567-c17938321e87&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a message (no Chinese)&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;5541a481-a428-46b1-891b-967e41f8c545&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;gmailOAuth2&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;LIvkUlCTmKQyWNRx&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Gmail OAuth2 API&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;Translator&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a message (with Chinese)&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model2&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Translator&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Needs Chinese Translation?&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Translator&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a message (no Chinese)&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<hr data-line="990" class="code-line" dir="auto">
+<h4 data-line="992" class="code-line" dir="auto" id="step-1-chinese-translation">Step 1: Chinese Translation</h4>
+<ul data-line="994" class="code-line" dir="auto">
+<li data-line="994" class="code-line" dir="auto">
+<p data-line="994" class="code-line" dir="auto"><strong>Add node:</strong> <code>If</code></p>
+<ul data-line="996" class="code-line" dir="auto">
+<li data-line="996" class="code-line" dir="auto">
+<p data-line="996" class="code-line" dir="auto">Set value1 as</p>
+<pre><code data-line="997" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;On form submission&#x27;).item.json.Format <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="1001" class="code-line" dir="auto">
+<p data-line="1001" class="code-line" dir="auto">Change the center condition to <code>Array → contains</code></p>
+</li>
+<li data-line="1003" class="code-line" dir="auto">
+<p data-line="1003" class="code-line" dir="auto">Set value2 as <code>Social Media Post</code></p>
+</li>
+</ul>
+</li>
+<li data-line="1005" class="code-line" dir="auto">
+<p data-line="1005" class="code-line" dir="auto"><strong>What it does:</strong> The n8n Form provides the choices of Social Media Post and/or Article Release as potential formats. The <code>Format</code> field is therefore &quot;Social Media Post,&quot; &quot;Article Release,&quot; or &quot;Social Media Post, Article Release.&quot; If <code>Format</code> contains the words &quot;Social Media Post,&quot; we need to provide translation.</p>
+</li>
+<li data-line="1008" class="code-line" dir="auto">
+<p data-line="1008" class="code-line" dir="auto"><strong>Add node:</strong> <code>AI Agent</code>. Connect this to the <code>true</code> branch of the If node.</p>
+<ul data-line="1009" class="code-line" dir="auto">
+<li data-line="1009" class="code-line" dir="auto">
+<p data-line="1009" class="code-line" dir="auto">Add a chat model.</p>
+</li>
+<li data-line="1010" class="code-line" dir="auto">
+<p data-line="1010" class="code-line" dir="auto"><code>Prompt (User Message)</code>:</p>
+<pre><code data-line="1012" class="code-line language-text" dir="auto">Text: {{ $(&#x27;Merge&#x27;).item.json.output.social_media_body }}
+</code></pre>
+</li>
+<li data-line="1016" class="code-line" dir="auto">
+<p data-line="1016" class="code-line" dir="auto">Set <code>System Message</code>:</p>
+<pre><code data-line="1018" class="code-line language-text" dir="auto">Act as a professional English-to-Chinese translator and communications specialist with expertise in brand storytelling, public relations, education communications, and multicultural marketing. You will be given English-language text to translate into Chinese. Use an approachable, engaging tone that is appropriate for social media outreach.
+</code></pre>
+</li>
+</ul>
+</li>
+</ul>
+<hr data-line="1022" class="code-line" dir="auto">
+<h4 data-line="1024" class="code-line" dir="auto" id="step-2-final-send">Step 2: Final Send</h4>
+<p data-line="1026" class="code-line" dir="auto">We will send over the drafts via email, but this could also be easily done via a messaging service, or being placed in a Google Sheet for storage and use later.</p>
+<ul data-line="1029" class="code-line" dir="auto">
+<li data-line="1029" class="code-line" dir="auto">
+<p data-line="1029" class="code-line" dir="auto"><strong>Add node:</strong> <code>Gmail → Send a message</code></p>
+<ul data-line="1030" class="code-line" dir="auto">
+<li data-line="1030" class="code-line" dir="auto">
+<p data-line="1030" class="code-line" dir="auto"><code>Text</code>:</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (7 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="1032" class="code-line language-json" dir="auto">Article Release title<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_title <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Article Release body<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Social Media Post body (English)<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.social_media_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Social Media Post body (Chinese)<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Translator&#x27;).item.json.output <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+</li>
+<li data-line="1042" class="code-line" dir="auto">
+<p data-line="1042" class="code-line" dir="auto">Connect this to the AI Agent’s output.</p>
+</li>
+</ul>
+</li>
+<li data-line="1044" class="code-line" dir="auto">
+<p data-line="1044" class="code-line" dir="auto"><strong>Add node:</strong> <code>Gmail → Send a message</code></p>
+<ul data-line="1045" class="code-line" dir="auto">
+<li data-line="1045" class="code-line" dir="auto">
+<p data-line="1045" class="code-line" dir="auto"><code>Text</code>:</p>
+<pre><code data-line="1047" class="code-line language-json" dir="auto">Article Release title<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_title <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+
+Article Release body<span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">{</span> $(&#x27;Merge&#x27;).item.json.output.article_release_body <span class="hljs-punctuation">}</span><span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li data-line="1053" class="code-line" dir="auto">
+<p data-line="1053" class="code-line" dir="auto">Connect this to the If node’s <code>false</code> output.</p>
+</li>
+<li data-line="1055" class="code-line" dir="auto">
+<p data-line="1055" class="code-line" dir="auto">In our case, if no translation is needed, then we only have article releases.</p>
+</li>
+</ul>
+</li>
+<li data-line="1057" class="code-line" dir="auto">
+<p data-line="1057" class="code-line" dir="auto">Choose your own subject line for the emails. For both nodes, set the <code>Email Type</code> to <code>Text</code>. You can also choose the recipient(s) in the <code>To</code> field; this should be a specified member in the communications team.</p>
+</li>
+</ul>
+<hr data-line="1059" class="code-line" dir="auto">
+<h3 data-line="1061" class="code-line" dir="auto" id="exercises-2">Exercises:</h3>
+<p data-line="1063" class="code-line" dir="auto">There are multiple ideas on how to make this workflow more robust and better. Try to think about these ideas first and then implement them in n8n!</p>
+<ol data-line="1065" class="code-line" dir="auto">
+<li data-line="1065" class="code-line" dir="auto">What if we also want to send the final draft to the same email address as the person submitting the idea? What would we need to change?</li>
+<li data-line="1066" class="code-line" dir="auto">Note that our decision about whether or not Chinese translation is needed could be done by an AI Agent! Change Part 3 of the workflow to be done by an AI Agent with a Gmail tool.
+<ol data-line="1067" class="code-line" dir="auto">
+<li data-line="1067" class="code-line" dir="auto">As an added challenge: try Question 1 again with your new workflow. What if you want it to be able to decide whom to send the message to?</li>
+</ol>
+</li>
+<li data-line="1068" class="code-line" dir="auto">In our workflow, every draft requires explicit human approval. How could you change the process so that some posts (like low-stakes reminders) are auto-approved if they meet certain criteria, while others (like article releases) always require human review?</li>
+</ol>
+<p data-line="1070" class="code-line" dir="auto"><strong>Challenge:</strong> Most posts on social media require some sort of graphics. Change the workflow so that users can submit photos/videos to be included or AI can generate some graphics. This is beyond the core content, so you may need to explore additional tools to figure this out!</p>
+<hr data-line="1072" class="code-line" dir="auto">
+<h3 data-line="1074" class="code-line" dir="auto" id="for-the-homework">For the Homework:</h3>
+<ul data-line="1076" class="code-line" dir="auto">
+<li data-line="1076" class="code-line" dir="auto"><code>n8n Form</code> trigger</li>
+<li data-line="1077" class="code-line" dir="auto">Constructing sub-workflows to make custom tools
+<ul data-line="1078" class="code-line" dir="auto">
+<li data-line="1078" class="code-line" dir="auto"><code>When Executed by Another Workflow</code> trigger</li>
+<li data-line="1079" class="code-line" dir="auto"><code>Call n8n Workflow Tool</code></li>
+</ul>
+</li>
+<li data-line="1080" class="code-line" dir="auto">Human-in-the-loop architecture
+<ul data-line="1081" class="code-line" dir="auto">
+<li data-line="1081" class="code-line" dir="auto"><code>Wait</code> and <code>Merge</code> nodes</li>
+</ul>
+</li>
+<li data-line="1082" class="code-line" dir="auto">Hierarchical agent architecture</li>
+</ul>
+<hr data-line="1084" class="code-line" dir="auto">
+<h2 data-line="1086" class="code-line" dir="auto" id="exploratory-content-schedule-trigger">Exploratory Content: Schedule Trigger</h2>
+<p data-line="1088" class="code-line" dir="auto">We conclude this session by introducing the <code>Schedule Trigger</code> node in n8n.</p>
+<p data-line="1090" class="code-line" dir="auto">The workflow below consists of four nodes (simply copy and paste it into your n8n instance).
+The <code>Schedule Trigger</code> runs every day at <strong>8:00 a.m.</strong> and asks my calendar agent for that day's schedule. The workflow then sends a Telegram message summarizing my calendar for the day.</p>
+<p data-line="1093" class="code-line" dir="auto">To use this workflow, replace the Telegram User ID with your own.</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (170 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="1095" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;rule&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;interval&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;triggerAtHour&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.scheduleTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-640</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">2960</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;0f78b5a0-3e45-429b-84bd-2fb0d3e31169&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Schedule Trigger&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;assignments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;assignments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1e528a79-4f19-4a16-8e86-b791e3888ed9&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;query&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Good morning! What events do I have in my calendar for today?&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span>
+            <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;f741e4ad-69e1-43d3-9d03-ee83a687321e&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sessionId&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $now + &#x27;-&#x27; + Math.random().toString(36).slice(2) }}&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.set&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-448</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">2960</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3e39829a-3648-4bb6-8948-3166afb5830a&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Edit Fields&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;chatId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;8665440744&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.output }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;additionalFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;appendAttribution&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.telegram&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-48</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">2960</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;96a66b0b-6b6c-4f31-81ba-56abac0e3b57&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a text message&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;d90328f9-6fdd-4a6f-8a62-f38bf42a52b0&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;telegramApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;oQL46PMZv5L6tIyK&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Telegram account&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;workflowId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;NK3biw1gluAWqx3E&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultUrl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;/workflow/NK3biw1gluAWqx3E&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Google Calendar Agent&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;workflowInputs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;mappingMode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;defineBelow&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.query }}&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;sessionId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.sessionId }}&quot;</span>
+          <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;matchingColumns&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-string">&quot;text&quot;</span>
+          <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;schema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;displayName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;defaultMatch&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;display&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;canBeUsedToMatch&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;removed&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+            <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sessionId&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;displayName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sessionId&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;defaultMatch&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;display&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;canBeUsedToMatch&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;removed&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;attemptToConvertTypes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;convertFieldsToString&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.executeWorkflow&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">-256</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">2960</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;c2a1e63c-4722-4f44-94ca-317c7d203576&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Call &#x27;Google Calendar Agent&#x27;&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;Schedule Trigger&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Edit Fields&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Edit Fields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Call &#x27;Google Calendar Agent&#x27;&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Call &#x27;Google Calendar Agent&#x27;&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Send a text message&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<p data-line="1268" class="code-line" dir="auto">The workflow calls the sub-workflow below, which is a simple modification of the <a href="./calendar-assistant.html" data-href="./calendar-assistant.html">Google Calendar Agent</a> we built in a previous session.</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (243 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="1271" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.4&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.4&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;builtInTools&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">992</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;6ea23a55-a9d4-4d52-a440-ef4ca3ebdf80&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;sessionIdType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;customKey&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;sessionKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $(&#x27;When Executed by Another Workflow&#x27;).item.json.sessionId }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;contextWindowLength&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.memoryBufferWindow&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1136</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;a0496d61-78ca-4a7b-b7a5-1d27daac89a7&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Simple Memory&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;delete&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;eventId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;Event_ID&#x27;, ``, &#x27;string&#x27;) }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.googleCalendarTool&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1472</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;c9203ead-33a7-4c42-90b8-9908af0b6103&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Delete an event in Google Calendar&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;googleCalendarOAuth2Api&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;7PV7IaBcj80gwX4X&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Google Calendar OAuth2 API&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;operation&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;getAll&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;returnAll&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;timeMin&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;After&#x27;, ``, &#x27;string&#x27;) }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;timeMax&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;Before&#x27;, ``, &#x27;string&#x27;) }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;query&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;Query&#x27;, ``, &#x27;string&#x27;) }}&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.googleCalendarTool&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1648</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1953fe97-9392-4e95-b0f8-6197dff0dc5b&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Get many events in Google Calendar&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;googleCalendarOAuth2Api&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;7PV7IaBcj80gwX4X&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Google Calendar OAuth2 API&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cc8029@nyu.edu&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;start&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;Start&#x27;, ``, &#x27;string&#x27;) }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;end&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;End&#x27;, ``, &#x27;string&#x27;) }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;additionalFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;summary&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ /*n8n-auto-generated-fromAI-override*/ $fromAI(&#x27;Summary&#x27;, ``, &#x27;string&#x27;) }}&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.googleCalendarTool&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1312</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">416</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;9b9159ec-61d2-4784-888f-567b8a868860&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Create an event in Google Calendar&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;googleCalendarOAuth2Api&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;7PV7IaBcj80gwX4X&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Google Calendar OAuth2 API&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;workflowInputs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span>
+            <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sessionId&quot;</span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.executeWorkflowTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">880</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">224</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;04840ec3-e84d-4f83-8d44-cd819389543a&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;When Executed by Another Workflow&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;promptType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;define&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;={{ $json.text }}&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;You are a calendar agent.\n- If not specified, the default event duration is **1 hour**.\n- If the user requests an event in the **evening** without specifying a time, schedule it to start at **6:00 PM**.&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1072</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">224</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;13a8eaaa-7c42-4cf7-b472-96213ff4440f&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Simple Memory&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_memory&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_memory&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Delete an event in Google Calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_tool&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_tool&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Get many events in Google Calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_tool&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_tool&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Create an event in Google Calendar&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_tool&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_tool&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;When Executed by Another Workflow&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+</div>
+        </div><div class="code-line" data-line="1516"></div></div>
+	<script id="codex-code-collapse-script" data-codex-code-collapse>
+		(() => {
+			const copyText = async (text) => {
+				if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(text);
+					return;
+				}
+	
+				const textArea = document.createElement("textarea");
+				textArea.value = text;
+				textArea.style.position = "fixed";
+				textArea.style.left = "-9999px";
+				document.body.appendChild(textArea);
+				textArea.focus();
+				textArea.select();
+				document.execCommand("copy");
+				textArea.remove();
+			};
+	
+			document.addEventListener("click", async (event) => {
+				const button = event.target.closest("[data-codex-copy-code]");
+				if (!button) {
+					return;
+				}
+	
+				event.preventDefault();
+				event.stopPropagation();
+	
+				const wrapper = button.closest("[data-codex-code-collapse]");
+				const pre = wrapper ? wrapper.querySelector("pre") : null;
+				if (!pre) {
+					return;
+				}
+	
+				const originalLabel = button.textContent;
+				try {
+					await copyText(pre.innerText);
+					button.textContent = "Copied";
+					window.setTimeout(() => {
+						button.textContent = originalLabel;
+					}, 1200);
+				} catch (error) {
+					button.textContent = "Copy failed";
+					window.setTimeout(() => {
+						button.textContent = originalLabel;
+					}, 1600);
+				}
+			});
+		})();
+	</script>
+</body>
+</html>
