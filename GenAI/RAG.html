@@ -1,0 +1,482 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>RAG</title>
+	<link rel="stylesheet" href="./assets/github-markdown.css">
+	<style id="codex-code-collapse-style" data-codex-code-collapse>
+		.codex-code-collapse {
+			margin: 1em 0;
+		}
+	
+		.codex-code-collapse > .codex-code-summary {
+			cursor: pointer;
+			padding: 6px 10px;
+			font-weight: 600;
+			border: 1px solid #d0d7de;
+			border-radius: 6px;
+			background: #f6f8fa;
+		}
+	
+		.codex-code-copy-button {
+			float: right;
+			margin-left: 12px;
+			padding: 4px 10px;
+			color: #24292f;
+			font-size: 13px;
+			font-weight: 600;
+			line-height: 1.4;
+			cursor: pointer;
+			border: 1px solid #d0d7de;
+			border-radius: 6px;
+			background: #ffffff;
+		}
+	
+		.codex-code-copy-button:hover {
+			background: #f3f4f6;
+		}
+	
+		.codex-code-collapse > pre {
+			margin-top: 0;
+		}
+	</style>
+</head>
+<body class="vscode-body vscode-light scrollBeyondLastLine wordWrap">
+	<div class="markdown-body" dir="auto"><div
+            class="github-markdown-body"
+            data-color-mode="auto"
+            data-light-theme="light"
+            data-dark-theme="dark"
+        >
+            <div class="github-markdown-content"><span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 data-line="0" class="code-line" dir="auto" id="building-a-rag-powered-qa-agent">Building a RAG-Powered Q&amp;A Agent</h1>
+<p data-line="2" class="code-line" dir="auto">Note that our agent (specifically, the model that it uses) is trained on general data and does not contain by itself specific knowledge about your class or your company.
+We need to provide our agent relevant internal information to answer domain-specific questions.
+There are two ways that we can do this: adding information to the system message or giving it access to external files. We currently have focused on adding information to the system message. Now, we focus on letting our agent access information beyond the system message by retrieving it from external files.</p>
+<p data-line="6" class="code-line" dir="auto">Copy and paste the following into your workflow.</p>
+<details class="codex-code-collapse" data-codex-code-collapse>
+	<summary class="codex-code-summary"><span>Code block (322 lines)</span><button type="button" class="codex-code-copy-button" data-codex-copy-code aria-label="Copy code block">Copy</button></summary>
+<pre><code data-line="8" class="code-line language-json" dir="auto"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;nodes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;26d63e24-2592-41f9-9b4b-edab81e99f21&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Embeddings OpenAI&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.embeddingsOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1712</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">784</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.2</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;dataType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;binary&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3a69c8a7-bf95-4de2-84b0-ae2cc3d2e4e7&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Default Data Loader&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.documentDefaultDataLoader&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1152</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">576</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.1</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;### The RAG workflow\n\nLoad your data into a vector database with the **Load Data** flow, and then use your data as chat context with the **Retriever** flow.\n\n**Quick start**\n1. Click on the `Execute Workflow` button to run the  **Load Data** flow.\n2. Click on the `Open Chat` button to run the **Retriever** flow. Then ask a question about content from your document(s).\n&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">348</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">424</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;0b42832b-c9e8-4627-b36c-94fc5e242b33&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Sticky Note&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.stickyNote&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">352</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">240</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;### Load Data Flow&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">508</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">700</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;f902ab8f-4620-4a95-86f7-c5857c4d6c4f&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Sticky Note1&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.stickyNote&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">832</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">208</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;### Retriever Flow&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">508</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">760</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3d1b3f5a-bc35-4739-a618-9c85820d39a0&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Sticky Note2&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.stickyNote&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1632</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">208</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;### Embeddings\n\nThe Insert and Retrieve operations use the same embedding node.\n\nThis is to ensure that they are using the **exact same embeddings and settings**.\n\nDifferent embeddings might not work at all, or have unintended consequences.\n&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;height&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">352</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;width&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">432</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;color&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">7</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;8d4c68cf-64d1-4b3a-bb19-2f003303c1df&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Sticky Note3&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.stickyNote&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1968</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">752</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.chatTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1664</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">304</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;f5f9223c-be60-446d-94f1-a05bc590b8f5&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;When chat message received&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;5b101e30-d30b-4d53-b1ab-b8019ef0b528&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;systemMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;You are a document-grounded Q&amp;A assistant. Answer questions **only** using the retrieved materials provided to you.\n\n- For every key claim or conclusion, cite the source immediately after the claim using the following format: `[File name / section]`.\n- If the retrieved materials do not provide enough information to answer a question, state clearly: **“The retrieved materials do not specify this.”**\n- Do not infer, fabricate, or guess.&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.agent&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3.1</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1872</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">304</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;b7025d79-5149-4c2d-a84c-0834bc54260c&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;contextWindowLength&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.memoryBufferWindow&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.4</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1968</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">528</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;f3511a0e-2c33-458a-9792-12c18ffb83cc&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Simple Memory&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;formTitle&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Upload Files to Your RAG Knowledge Base&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;formFields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;values&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+            <span class="hljs-punctuation">{</span>
+              <span class="hljs-attr">&quot;fieldLabel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Upload your file(s)&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;fieldType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file&quot;</span><span class="hljs-punctuation">,</span>
+              <span class="hljs-attr">&quot;requiredField&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span>
+            <span class="hljs-punctuation">}</span>
+          <span class="hljs-punctuation">]</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;n8n-nodes-base.formTrigger&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2.6</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">896</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">304</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3680b877-81ec-4e8e-9502-40bd37101902&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Upload your file here&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;webhookId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;9e3c7965-3070-4f1f-bcdb-57b49ad56f5e&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;insert&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;memoryKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vector_store_key&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.vectorStoreInMemory&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1104</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">304</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;a946b45d-075e-41a3-a7f0-8e865732942a&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Insert Data to Store&quot;</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;cachedResultName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;gpt-5.5&quot;</span>
+        <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;builtInTools&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;options&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;reasoningEffort&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;medium&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.lmChatOpenAi&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">1808</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">528</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;f7d84c3f-6620-441d-8065-6f73c102dc6b&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;credentials&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;openAiApi&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;nUYAuqcujftRiPkF&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;OpenAI n8n&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+        <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;retrieve-as-tool&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;toolDescription&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Use this knowledge base to answer specific user questions.&quot;</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-attr">&quot;memoryKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+          <span class="hljs-attr">&quot;__rl&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;mode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;list&quot;</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;vector_store_key&quot;</span>
+        <span class="hljs-punctuation">}</span>
+      <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;@n8n/n8n-nodes-langchain.vectorStoreInMemory&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;typeVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1.3</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;position&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-number">2096</span><span class="hljs-punctuation">,</span>
+        <span class="hljs-number">528</span>
+      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;df40b568-1f1d-4efd-bf31-18f74009c5b4&quot;</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Information Retrieval&quot;</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;connections&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;Embeddings OpenAI&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_embedding&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Information Retrieval&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_embedding&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Insert Data to Store&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_embedding&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Default Data Loader&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_document&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Insert Data to Store&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_document&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;When chat message received&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Simple Memory&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_memory&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_memory&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Upload your file here&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;main&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Insert Data to Store&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;main&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;OpenAI Chat Model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_languageModel&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;Information Retrieval&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">&quot;ai_tool&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+        <span class="hljs-punctuation">[</span>
+          <span class="hljs-punctuation">{</span>
+            <span class="hljs-attr">&quot;node&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;AI Agent&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ai_tool&quot;</span><span class="hljs-punctuation">,</span>
+            <span class="hljs-attr">&quot;index&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span>
+          <span class="hljs-punctuation">}</span>
+        <span class="hljs-punctuation">]</span>
+      <span class="hljs-punctuation">]</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;pinData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;meta&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;templateId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;5010&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;templateCredsSetupCompleted&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;instanceId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;3ea1f6d2492ba24b1f291cca73ab3c1032862ba961bfca3af17773ccda77804c&quot;</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</details>
+<h2 data-line="333" class="code-line" dir="auto" id="retrieval-augmented-generation-rag">Retrieval-Augmented Generation (RAG)</h2>
+<p data-line="335" class="code-line" dir="auto">To improve our agent, we want to give it a tool that allows it to search through documents before it creates its response. This is known as <strong>Retrieval-Augmented Generation, or RAG</strong>. However, it would be extremely inefficient for our agent to have to read through entire documents each time. As a result, we want to consolidate this text into a more accessible format. Specifically, we want the following process:</p>
+<ol data-line="337" class="code-line" dir="auto">
+<li data-line="337" class="code-line" dir="auto">A user asks a question.</li>
+<li data-line="338" class="code-line" dir="auto">The AI agent searches a knowledge base for the most relevant chunks of text.</li>
+<li data-line="339" class="code-line" dir="auto">These chunks of text are passed to the LLM.</li>
+<li data-line="340" class="code-line" dir="auto">The LLM uses these to compose its response.</li>
+</ol>
+<p data-line="342" class="code-line" dir="auto">In the following, we walk through the workflow that you were given above.</p>
+<hr data-line="344" class="code-line" dir="auto">
+<h3 data-line="346" class="code-line" dir="auto" id="insert-data-to-store-a-simple-vector-store-node">Insert Data to Store (a Simple Vector Store node)</h3>
+<p data-line="348" class="code-line" dir="auto">We will build a way  to insert the documents into what is known as a <strong>vector store</strong>. A vector is a string of numbers. We will take our data and transform it into vectors, where similar vectors refer to similar sequences of data.</p>
+<p data-line="350" class="code-line" dir="auto">Note that you might need to make a <code>Memory Key</code>, which is like your key for the <code>Simple Memory</code> subnode.</p>
+<h3 data-line="353" class="code-line" dir="auto" id="default-data-loader">Default Data Loader</h3>
+<p data-line="355" class="code-line" dir="auto">This node decides how to load data into the vector store. Specifically, we need to split the data from the documents into chunks, which are each stored as a separate vector. This node is responsible for determining what type of data is being loaded in and how it is split.
+Once this is complete, we still need to specify how vectors are created from the chunked data.</p>
+<h3 data-line="358" class="code-line" dir="auto" id="embeddings-openai">Embeddings OpenAI</h3>
+<p data-line="360" class="code-line" dir="auto">There are many ways to create vectors from chunked data; it is the process called <strong>text embedding</strong>. OpenAI provides several embedding models that generate the vectors stored in the vector database. These embeddings capture the semantic meaning of the text, enabling us to retrieve the information most relevant to a query in the next step.</p>
+<h3 data-line="363" class="code-line" dir="auto" id="information-retrieval-a-simple-vector-store-node">Information Retrieval (a Simple Vector Store node)</h3>
+<p data-line="365" class="code-line" dir="auto">The simple vector store, default data loader, and embeddings are what we use to load the data into the vector store. We still need a way to retrieve relevant information from that store so the AI agent can access it.</p>
+<p data-line="367" class="code-line" dir="auto">This node uses the same embedding method to retrieve the stored data most relevant to a given query.
+From the <code>AI Agent</code> node, connect the <code>+</code> sign where it says <code>Tool</code> to this node. Once connected, the AI agent can reference documents in the vector store.</p>
+<hr data-line="370" class="code-line" dir="auto">
+<h3 data-line="372" class="code-line" dir="auto" id="preparing-rag-input">Preparing RAG Input</h3>
+<p data-line="374" class="code-line" dir="auto">We will add documents to the vector store through file submissions via a form.</p>
+<ul data-line="376" class="code-line" dir="auto">
+<li data-line="376" class="code-line" dir="auto">
+<p data-line="376" class="code-line" dir="auto"><strong>Add node:</strong> <code>Add another trigger → On form submission</code></p>
+<ul data-line="378" class="code-line" dir="auto">
+<li data-line="378" class="code-line" dir="auto">Form Title: Something like &quot;Upload Files to Your RAG Knowledge Base.&quot;</li>
+<li data-line="379" class="code-line" dir="auto">Click <code>Add Form Element</code>. Choose Element Type: File.</li>
+</ul>
+</li>
+<li data-line="381" class="code-line" dir="auto">
+<p data-line="381" class="code-line" dir="auto">Connect the output of this node to the <code>Insert Data to Store</code> node.</p>
+</li>
+<li data-line="383" class="code-line" dir="auto">
+<p data-line="383" class="code-line" dir="auto"><strong>What it does:</strong> The <code>On form submission</code> trigger starts the workflow when a user submits a form. In our specific case, when we fill out the form and submit a file, the workflow then embeds the data from the file as vectors, which can be retrieved later.</p>
+</li>
+</ul>
+<hr data-line="386" class="code-line" dir="auto">
+<h3 data-line="388" class="code-line" dir="auto" id="exercises">Exercises</h3>
+<ol data-line="390" class="code-line" dir="auto">
+<li data-line="390" class="code-line" dir="auto">Submit a few documents to the vector store. Then ask the AI agent questions that reference those documents!</li>
+</ol>
+</div>
+        </div><div class="code-line" data-line="391"></div></div>
+	<script id="codex-code-collapse-script" data-codex-code-collapse>
+		(() => {
+			const copyText = async (text) => {
+				if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(text);
+					return;
+				}
+	
+				const textArea = document.createElement("textarea");
+				textArea.value = text;
+				textArea.style.position = "fixed";
+				textArea.style.left = "-9999px";
+				document.body.appendChild(textArea);
+				textArea.focus();
+				textArea.select();
+				document.execCommand("copy");
+				textArea.remove();
+			};
+	
+			document.addEventListener("click", async (event) => {
+				const button = event.target.closest("[data-codex-copy-code]");
+				if (!button) {
+					return;
+				}
+	
+				event.preventDefault();
+				event.stopPropagation();
+	
+				const wrapper = button.closest("[data-codex-code-collapse]");
+				const pre = wrapper ? wrapper.querySelector("pre") : null;
+				if (!pre) {
+					return;
+				}
+	
+				const originalLabel = button.textContent;
+				try {
+					await copyText(pre.innerText);
+					button.textContent = "Copied";
+					window.setTimeout(() => {
+						button.textContent = originalLabel;
+					}, 1200);
+				} catch (error) {
+					button.textContent = "Copy failed";
+					window.setTimeout(() => {
+						button.textContent = originalLabel;
+					}, 1600);
+				}
+			});
+		})();
+	</script>
+</body>
+</html>
